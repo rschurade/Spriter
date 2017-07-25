@@ -640,8 +640,17 @@ void Spriter::onButtonCommit()
 			img.setPixelColor( x, y, col );
 		}
 	}
-	m_currentSprite.pixmaps[m_currentRot] = QPixmap::fromImage( img );
+	pm = QPixmap::fromImage( img );
+	m_currentSprite.pixmaps[m_currentRot] = pm;
 	m_sprites.insert( m_currentSprite.id, m_currentSprite );
+
+	ui.labelPreview->setPixmap( pm );
+	ui.labelPreview->setMaximumSize( m_currentSprite.dimX, m_currentSprite.dimY );
+	ui.labelPreview->setMinimumSize( m_currentSprite.dimX, m_currentSprite.dimY );
+
+	ui.labelPreview2->setMaximumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
+	ui.labelPreview2->setMinimumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
+	ui.labelPreview2->setPixmap( pm.scaled( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 )  );
 }
 
 void Spriter::onButtonCancel()
