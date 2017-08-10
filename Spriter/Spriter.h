@@ -29,7 +29,7 @@ private:
 
 	void loadAndParseJSON( QString url );
 	void extractSprites();
-	void extractPixmap( Sprite& sprite, QString rotation );
+	void extractPixmap( Sprite& sprite, SpriteValues sv, QString rotation );
 
 	void paint5x5( int levels );
 

@@ -45,6 +45,7 @@ Spriter::Spriter(QWidget *parent)
 	connect( ui.tableWidgetLevelDef, &QTableWidget::cellChanged, this, &Spriter::onItemLevelDefChanged );
 
 	connect( ui.sliderLevel, &QSlider::valueChanged, this, &Spriter::paint5x5 );
+	connect( ui.sliderYMax, &QSlider::valueChanged, this, &Spriter::paint5x5 );
 
 	connect( ui.pushButtonCommit, &QPushButton::clicked, this, &Spriter::onButtonCommit );
 	connect( ui.pushButtonCancel, &QPushButton::clicked, this, &Spriter::onButtonCancel );
@@ -115,6 +116,8 @@ Spriter::Spriter(QWidget *parent)
 			extractSprites();
 		}
 	}
+
+	paint5x5( 0 );
 }
 
 Spriter::~Spriter()
@@ -301,7 +304,40 @@ void Spriter::recallPreset( int pos )
 
 void Spriter::onCellClicked( int row, int column )
 {
-	ui.tableWidgetSprite->item( row, column )->setBackgroundColor( m_currentColor );
+	QColor color = m_currentColor;
+	if( ui.pushButtonDelete->isChecked() )
+	{
+		color = QColor( 0, 0, 0, 0 );
+		
+	}
+	
+	if( ui.radioButton1->isChecked() )
+	{
+		ui.tableWidgetSprite->item( row, column )->setBackgroundColor( color );
+	}
+	else if( ui.radioButton3->isChecked() )
+	{
+		for( int x = column - 1; x < column + 2; ++x  )
+		{
+			for( int y = row - 1; y < row + 2; ++y  )
+			{
+				ui.tableWidgetSprite->item( qMin( 31, qMax( y, 0 ) ), qMin( 31, qMax( x, 0 ) ) )->setBackgroundColor( color );
+			}
+		}
+		
+	}
+	else if( ui.radioButton5->isChecked() )
+	{
+		for( int x = column - 2; x < column + 3; ++x  )
+		{
+			for( int y = row - 2; y < row + 3; ++y  )
+			{
+				ui.tableWidgetSprite->item( qMin( 31, qMax( y, 0 ) ), qMin( 31, qMax( x, 0 ) ) )->setBackgroundColor( color );
+			}
+		}
+
+	}
+
 }
 
 void Spriter::onLoad()
@@ -374,18 +410,45 @@ void Spriter::onSave()
 	QString path = settings.value( "pngPath" ).toString();
 	
 	QPainter* painter = new QPainter( &m_pixmap );
-
 	int posX = ui.lineEditPosX->text().toInt();
 	int posY = ui.lineEditPosY->text().toInt();
+	int w = ui.lineEditSizeX->text().toInt();
+	int h = ui.lineEditSizeY->text().toInt();
+	
+	//painter->eraseRect( posX, posY, w, h );
+	painter->setCompositionMode( QPainter::CompositionMode_Source );
+	painter->fillRect( posX, posY, w, h, Qt::transparent );
 	painter->drawPixmap( posX, posY, m_currentSprite.pixmaps[m_currentRot] );
-
+	delete painter;
+	qDebug() << path;
 	m_pixmap.save( path, "PNG" );
+
+
+	m_spriteDefs.clear();
+	m_sprites.clear();
+
+	if( settings.contains( "jsonPath" ) )
+	{
+		loadAndParseJSON( settings.value( "jsonPath" ).toString() );
+	}
+	if( settings.contains( "pngPath" ) )
+	{
+		QPixmap pm;
+		m_pixmapLoaded = pm.load( settings.value( "pngPath" ).toString() );
+		m_pixmap = pm;
+		if( m_pixmapLoaded )
+		{
+			extractSprites();
+		}
+	}
+
+	paint5x5( 0 );
 }
 
 void Spriter::loadAndParseJSON( QString url )
 {
 	QFile file( url );
-	file.open(QIODevice::ReadOnly | QIODevice::Text);
+	file.open( QIODevice::ReadOnly | QIODevice::Text );
 	QString content = file.readAll();
 	file.close();
 	QJsonDocument sd = QJsonDocument::fromJson( content.toUtf8() );
@@ -397,9 +460,9 @@ void Spriter::loadAndParseJSON( QString url )
 	for( auto spriteVariant : spriteList )
 	{
 		QVariantMap sm = spriteVariant.toMap();
-		if ( sm.contains( "SpriteID" ) )
+		if ( sm.contains( "ID" ) )
 		{
-			QString id = sm.value( "SpriteID" ).toString();
+			QString id = sm.value( "ID" ).toString();
 			m_spriteDefs.insert( id, sm );
 			QTreeWidgetItem* twi = new QTreeWidgetItem( { id } );
 			ui.treeWidget->addTopLevelItem( twi );
@@ -429,66 +492,82 @@ void Spriter::extractSprites()
 	{
 		QVariantMap sm = sv.toMap();
 
-		QString id = sm.value( "SpriteID" ).toString();
 		if ( !sm.contains( "Rotations" ) )
 		{
 			// Sprite with just one direction
+			QString id = sm.value( "ID" ).toString();
+			Sprite s;
+			s.id = id;
+			SpriteValues sv;
+
+
 			QString rect = sm.value( "SourceRectangle" ).toString();
 			QString offset = sm.value( "Offset" ).toString();
 
-			Sprite s;
-			s.id = id;
 			QStringList rl = rect.split( " " );
 			if ( rl.size() == 4 )
 			{
-				s.x = rl[0].toInt();
-				s.y = rl[1].toInt();
-				s.dimX = rl[2].toInt();
-				s.dimY = rl[3].toInt();
+				sv.x = rl[0].toInt();
+				sv.y = rl[1].toInt();
+				sv.dimX = rl[2].toInt();
+				sv.dimY = rl[3].toInt();
 			}
 			QStringList ol = offset.split( " " );
 			if ( ol.size() == 2 )
 			{
-				s.xOffset = ol[0].toInt();
-				s.yOffset = ol[1].toInt();
+				sv.xOffset = ol[0].toInt();
+				sv.yOffset = ol[1].toInt();
 			}
-			extractPixmap( s, "" );
+			extractPixmap( s, sv, "" );
 			m_sprites.insert( s.id, s );
 		}
 		else
 		{
+			QString id = sm.value( "ID" ).toString();
 			Sprite s;
 			s.id = id;
-
+			
 			QVariantList rotList = sm.value( "Rotations" ).toList();
+			
 			for( auto rotEntry : rotList )
 			{
+				SpriteValues sv;
+				QString offset = sm.value( "Offset" ).toString();
+				QStringList ol = offset.split( " " );
+				if ( ol.size() == 2 )
+				{
+					sv.xOffset = ol[0].toInt();
+					sv.yOffset = ol[1].toInt();
+				}
+
 				QVariantMap rem = rotEntry.toMap();
 				QString suffix = rem.value( "Rotation" ).toString();
+				//qDebug() << s.id << suffix;
 				QString rect = rem.value( "SourceRectangle" ).toString();
-				QString offset = rem.value( "Offset" ).toString();
-				bool flipH = rem.value( "FlipHorizontal" ).toBool();
-				bool flipV = rem.value( "FlipVertical" ).toBool();
+				sv.flipHorizontal = rem.value( "FlipHorizontal" ).toBool();
+				sv.flipVertical = rem.value( "FlipVertical" ).toBool();
 
 				QStringList rl = rect.split( " " );
 				if ( rl.size() == 4 )
 				{
-					s.x = rl[0].toInt();
-					s.y = rl[1].toInt();
-					s.dimX = rl[2].toInt();
-					s.dimY = rl[3].toInt();
+					sv.x = rl[0].toInt();
+					sv.y = rl[1].toInt();
+					sv.dimX = rl[2].toInt();
+					sv.dimY = rl[3].toInt();
 				}
-				QStringList ol = offset.split( " " );
-				if ( ol.size() == 2 )
+
+				QString roffset = rem.value( "Offset" ).toString();
+				QStringList rol = roffset.split( " " );
+				if ( rol.size() == 2 )
 				{
-					s.xOffset = ol[0].toInt();
-					s.yOffset = ol[1].toInt();
+					sv.xOffset = rol[0].toInt();
+					sv.yOffset = rol[1].toInt();
 				}
 				
-				extractPixmap( s, suffix );
+				extractPixmap( s, sv, suffix );
 
 				QImage img = s.pixmaps[suffix].toImage();
-				QPixmap p2 = QPixmap::fromImage( img.mirrored( flipH, flipV ) );
+				QPixmap p2 = QPixmap::fromImage( img.mirrored( sv.flipHorizontal, sv.flipVertical ) );
 				s.pixmaps.insert( suffix, p2 );
 			}
 			m_sprites.insert( s.id, s );
@@ -496,15 +575,16 @@ void Spriter::extractSprites()
 	}
 }
 
-void Spriter::extractPixmap( Sprite& sprite, QString rotation )
+void Spriter::extractPixmap( Sprite& sprite, SpriteValues sv, QString rotation )
 {
-	QPixmap p = m_pixmap.copy( sprite.x, sprite.y, sprite.dimX, sprite.dimY );
+	QPixmap p = m_pixmap.copy( sv.x, sv.y, sv.dimX, sv.dimY );
 	p.setMask( p.createMaskFromColor( QColor( 255, 0, 255 ), Qt::MaskInColor ) );
 	//p.save( "content/" + name + ".png", "PNG");
 
 	if( rotation != "" )
 	{
 		sprite.pixmaps.insert( rotation, p );
+		sprite.values.insert( rotation, sv );
 	}
 	else
 	{
@@ -512,6 +592,10 @@ void Spriter::extractPixmap( Sprite& sprite, QString rotation )
 		sprite.pixmaps.insert( "FR", p );
 		sprite.pixmaps.insert( "BL", p );
 		sprite.pixmaps.insert( "BR", p );
+		sprite.values.insert( "FL", sv );
+		sprite.values.insert( "FR", sv );
+		sprite.values.insert( "BL", sv );
+		sprite.values.insert( "BR", sv );
 	}
 
 
@@ -532,21 +616,29 @@ void Spriter::onTreeClicked( QTreeWidgetItem* twi, int column )
 	QPixmap pm = m_currentSprite.pixmaps[m_currentRot];
 	QImage img = pm.toImage();
 	ui.labelPreview->setPixmap( pm );
-	ui.labelPreview->setMaximumSize( m_currentSprite.dimX, m_currentSprite.dimY );
-	ui.labelPreview->setMinimumSize( m_currentSprite.dimX, m_currentSprite.dimY );
+	ui.labelPreview->setMaximumSize( m_currentSprite.values[m_currentRot].dimX, m_currentSprite.values[m_currentRot].dimY );
+	ui.labelPreview->setMinimumSize( m_currentSprite.values[m_currentRot].dimX, m_currentSprite.values[m_currentRot].dimY );
 		
-	ui.labelPreview2->setMaximumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
-	ui.labelPreview2->setMinimumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
-	ui.labelPreview2->setPixmap( pm.scaled( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 )  );
+	ui.labelPreview2->setMaximumSize( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 );
+	ui.labelPreview2->setMinimumSize( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 );
+	ui.labelPreview2->setPixmap( pm.scaled( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 )  );
 
 	ui.lineEditID->setText( text );
 	ui.lineEditRot->setText( m_currentRot );
-	ui.lineEditPosX->setText( QString::number( m_currentSprite.x ) );
-	ui.lineEditPosY->setText( QString::number( m_currentSprite.y ) );
-	ui.lineEditSizeX->setText( QString::number( m_currentSprite.dimX ) );
-	ui.lineEditSizeY->setText( QString::number( m_currentSprite.dimY ) );
-	ui.lineEditOffsetX->setText( QString::number( m_currentSprite.xOffset ) );
-	ui.lineEditOffsetY->setText( QString::number( m_currentSprite.yOffset ) );
+
+	
+				
+	bool flipX = m_currentSprite.values[m_currentRot].flipHorizontal;
+	bool flipY = m_currentSprite.values[m_currentRot].flipVertical;
+	ui.checkBoxFlipX->setChecked( flipX );
+	ui.checkBoxFlipY->setChecked( flipY );
+
+	ui.lineEditPosX->setText( QString::number( m_currentSprite.values[m_currentRot].x ) );
+	ui.lineEditPosY->setText( QString::number( m_currentSprite.values[m_currentRot].y ) );
+	ui.lineEditSizeX->setText( QString::number( m_currentSprite.values[m_currentRot].dimX ) );
+	ui.lineEditSizeY->setText( QString::number( m_currentSprite.values[m_currentRot].dimY ) );
+	ui.lineEditOffsetX->setText( QString::number( m_currentSprite.values[m_currentRot].xOffset ) );
+	ui.lineEditOffsetY->setText( QString::number( m_currentSprite.values[m_currentRot].yOffset ) );
 
 	for( int i = 0; i < 32; ++i )
 	{
@@ -579,10 +671,11 @@ void Spriter::paint5x5( int levels )
 	int y0 = 120;
 	
 	int zMax = ui.sliderLevel->value() + 1;
+	int yMax = ui.sliderYMax->value() + 1;
 	for ( int z = 0; z < zMax; ++z )
 	{
 		// paint floors
-		for ( int y = 0; y < 5; ++y )
+		for ( int y = 0; y < yMax; ++y )
 		{
 			for ( int x = 0; x < 5; ++x )
 			{
@@ -595,9 +688,8 @@ void Spriter::paint5x5( int levels )
 
 				if( !fIdS.isEmpty() )
 				{
-
 					Sprite floorSprite = m_sprites[fIdS];
-					painter->drawPixmap( px + floorSprite.xOffset, py + floorSprite.yOffset, floorSprite.pixmaps["FL"] );
+					painter->drawPixmap( px + floorSprite.values[m_currentRot].xOffset, py + floorSprite.values[m_currentRot].yOffset, floorSprite.pixmaps["FL"] );
 				}
 
 			}
@@ -605,7 +697,7 @@ void Spriter::paint5x5( int levels )
 		y0 -= 16;
 
 		// paint walls
-		for ( int y = 0; y < 5; ++y )
+		for ( int y = 0; y < yMax; ++y )
 		{
 			for ( int x = 0; x < 5; ++x )
 			{
@@ -616,15 +708,20 @@ void Spriter::paint5x5( int levels )
 				QString wIdS = m_ids5x5[wId];
 				if( !wIdS.isEmpty() )
 				{
-
+					QString orient = "FL";
+					if ( wIdS.endsWith( "FR" ) ) { orient = "FR"; wIdS = wIdS.left( wIdS.size() - 2 ); }
+					if ( wIdS.endsWith( "BR" ) ) { orient = "BR"; wIdS = wIdS.left( wIdS.size() - 2 ); }
+					if ( wIdS.endsWith( "BL" ) ) { orient = "BL"; wIdS = wIdS.left( wIdS.size() - 2 ); }
 					Sprite wallSprite = m_sprites[wIdS];
-					painter->drawPixmap( px + wallSprite.xOffset, py + wallSprite.yOffset, wallSprite.pixmaps["FL"] );
+					painter->drawPixmap( px + wallSprite.values[orient].xOffset, py + wallSprite.values[orient].yOffset, wallSprite.pixmaps[orient] );
 				}
 			}
 		}
 		y0 -= 4;
 	}
-	ui.label5x5->setPixmap( pm );
+	
+	ui.label5x5->setPixmap( pm.scaled( 480, 480 ) );
+	
 	delete painter;
 }
 
@@ -645,12 +742,14 @@ void Spriter::onButtonCommit()
 	m_sprites.insert( m_currentSprite.id, m_currentSprite );
 
 	ui.labelPreview->setPixmap( pm );
-	ui.labelPreview->setMaximumSize( m_currentSprite.dimX, m_currentSprite.dimY );
-	ui.labelPreview->setMinimumSize( m_currentSprite.dimX, m_currentSprite.dimY );
+	ui.labelPreview->setMaximumSize( m_currentSprite.values[m_currentRot].dimX, m_currentSprite.values[m_currentRot].dimY );
+	ui.labelPreview->setMinimumSize( m_currentSprite.values[m_currentRot].dimX, m_currentSprite.values[m_currentRot].dimY );
 
-	ui.labelPreview2->setMaximumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
-	ui.labelPreview2->setMinimumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
-	ui.labelPreview2->setPixmap( pm.scaled( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 )  );
+	ui.labelPreview2->setMaximumSize( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 );
+	ui.labelPreview2->setMinimumSize( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 );
+	ui.labelPreview2->setPixmap( pm.scaled( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 )  );
+
+	paint5x5( 0 );
 }
 
 void Spriter::onButtonCancel()
@@ -658,12 +757,12 @@ void Spriter::onButtonCancel()
 	QPixmap pm = m_currentSprite.pixmaps[m_currentRot];
 	QImage img = pm.toImage();
 	ui.labelPreview->setPixmap( pm );
-	ui.labelPreview->setMaximumSize( m_currentSprite.dimX, m_currentSprite.dimY );
-	ui.labelPreview->setMinimumSize( m_currentSprite.dimX, m_currentSprite.dimY );
+	ui.labelPreview->setMaximumSize( m_currentSprite.values[m_currentRot].dimX, m_currentSprite.values[m_currentRot].dimY );
+	ui.labelPreview->setMinimumSize( m_currentSprite.values[m_currentRot].dimX, m_currentSprite.values[m_currentRot].dimY );
 
-	ui.labelPreview2->setMaximumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
-	ui.labelPreview2->setMinimumSize( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 );
-	ui.labelPreview2->setPixmap( pm.scaled( m_currentSprite.dimX * 2, m_currentSprite.dimY * 2 )  );
+	ui.labelPreview2->setMaximumSize( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 );
+	ui.labelPreview2->setMinimumSize( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 );
+	ui.labelPreview2->setPixmap( pm.scaled( m_currentSprite.values[m_currentRot].dimX * 2, m_currentSprite.values[m_currentRot].dimY * 2 )  );
 
 	for( int i = 0; i < 32; ++i )
 	{

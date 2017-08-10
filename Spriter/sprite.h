@@ -4,26 +4,20 @@
 #include <QPixmap>
 #include <QMap>
 
-struct Sprite
+struct SpriteValues
 {
-	Sprite() {
-	}
-	Sprite( const Sprite& other )
-	{
-		id = other.id;
-		x = other.x;
-		y = other.y;
-		dimX = other.dimX;
-		dimY = other.dimY;
-		xOffset = other.xOffset;
-		yOffset = other.yOffset;
-		opacity = other.opacity;
-		effect = other.effect;
-		pixmaps = other.pixmaps;
-		spriteID = other.spriteID;
+	SpriteValues() {
+		x = 0;
+		y = 0;
+		dimX = 0;
+		dimY = 0;
+		xOffset = 0;
+		yOffset = 0;
+		flipHorizontal = false;
+		flipVertical = false;
+		opacity = 1.0;
 	}
 
-	QString id;
 	int x;
 	int y;
 	int dimX;
@@ -31,9 +25,26 @@ struct Sprite
 	char xOffset;
 	char yOffset;
 	float opacity;
+	bool flipHorizontal;
+	bool flipVertical;
 	QString effect;
+};
+
+struct Sprite
+{
+	Sprite() {
+	}
+	Sprite( const Sprite& other )
+	{
+		id = other.id;
+		
+		pixmaps = other.pixmaps;
+		values = other.values;
+	}
+
+	QString id;
+	
+	
+	QMap<QString, SpriteValues> values;
 	QMap<QString, QPixmap> pixmaps;
-
-	unsigned int spriteID;
-
 };

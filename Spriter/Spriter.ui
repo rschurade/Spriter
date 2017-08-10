@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1080</width>
+    <width>1343</width>
     <height>954</height>
    </rect>
   </property>
@@ -53,7 +53,7 @@
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>200</height>
+              <height>220</height>
              </size>
             </property>
             <property name="maximumSize">
@@ -175,6 +175,27 @@
                </item>
                <item>
                 <widget class="QLineEdit" name="lineEditOffsetY"/>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="horizontalLayout_20">
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QCheckBox" name="checkBoxFlipX">
+                 <property name="text">
+                  <string>flip X</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="checkBoxFlipY">
+                 <property name="text">
+                  <string>flip Y</string>
+                 </property>
+                </widget>
                </item>
               </layout>
              </item>
@@ -351,6 +372,57 @@
             </item>
             <item>
              <spacer name="horizontalSpacer_7">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_3">
+            <property name="bottomMargin">
+             <number>20</number>
+            </property>
+            <item>
+             <widget class="QPushButton" name="pushButtonDelete">
+              <property name="text">
+               <string>delete</string>
+              </property>
+              <property name="checkable">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioButton1">
+              <property name="text">
+               <string>1x1</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioButton3">
+              <property name="text">
+               <string>3x3</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioButton5">
+              <property name="text">
+               <string>5x5</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_9">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
               </property>
@@ -786,8 +858,8 @@
              <widget class="QLabel" name="label5x5">
               <property name="minimumSize">
                <size>
-                <width>240</width>
-                <height>240</height>
+                <width>480</width>
+                <height>480</height>
                </size>
               </property>
               <property name="text">
@@ -800,12 +872,34 @@
               <property name="maximum">
                <number>4</number>
               </property>
+              <property name="value">
+               <number>4</number>
+              </property>
               <property name="orientation">
                <enum>Qt::Vertical</enum>
               </property>
              </widget>
             </item>
            </layout>
+          </item>
+          <item>
+           <widget class="QSlider" name="sliderYMax">
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>4</number>
+            </property>
+            <property name="value">
+             <number>4</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="invertedAppearance">
+             <bool>true</bool>
+            </property>
+           </widget>
           </item>
           <item>
            <spacer name="verticalSpacer_2">
@@ -934,7 +1028,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1080</width>
+     <width>1343</width>
      <height>21</height>
     </rect>
    </property>
